@@ -1,0 +1,59 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      # Install dependencies if needed
+      - echo "Installing AWS CLI if not already installed..."
+
+  pre_build:
+    commands:
+      # Fetch parameters from Parameter Store
+      - PARAMETER=$(aws ssm get-parameter --name "martini-upload-packages" --with-decryption --query "Parameter.Value" --output text)
+      - BASE_URL=$(echo $PARAMETER | jq -r '.BASE_URL')
+      - MARTINI_USER_NAME=$(echo $PARAMETER | jq -r '.MARTINI_USER_NAME')
+      - MARTINI_USER_PASSWORD=$(echo $PARAMETER | jq -r '.MARTINI_USER_PASSWORD')
+
+      # Fetch OAuth token
+      - echo "Fetching the OAuth token..."
+      - |
+        GET_TOKEN=$(curl --location "${BASE_URL}/oauth/token" \
+          --header "Content-Type: application/x-www-form-urlencoded" \
+          --data-urlencode "grant_type=password" \
+          --data-urlencode "client_id=TOROMartini" \
+          --data-urlencode "client_secret=TOROMartini" \
+          --data-urlencode "username=${MARTINI_USER_NAME}" \
+          --data-urlencode "password=${MARTINI_USER_PASSWORD}")
+      - token=$(echo $GET_TOKEN | jq -r '.access_token')
+
+  build:
+    commands:
+      # Prepare staging folder
+      - cd packages
+      - for dir in */; do dir=${dir%*/}; zip -r "../${dir}.zip" "$dir"; done
+      - cd ..
+
+      # Upload zip files to the endpoint
+      - |
+        for zipfile in *.zip; do
+          echo "Uploading $zipfile"
+          curl -X POST "${BASE_URL}/esbapi/packages/upload?stateOnCreate=STARTED&replaceExisting=true" \
+            -H "accept: application/json" \
+            -H "Content-Type: multipart/form-data" \
+            -F "file=@\"${zipfile}\";type=application/x-zip-compressed" \
+            -H "Authorization: Bearer ${token}"
+        done
+
+  post_build:
+    commands:
+      # Test the API with a custom greeting request
+      - |
+        API_RESPONSE=$(curl -s "${BASE_URL}/api/greeting?name=Neo" \
+          -H "Authorization: Bearer ${token}")
+      - echo "Response from the API request:"
+      - echo "$API_RESPONSE"
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: yes
