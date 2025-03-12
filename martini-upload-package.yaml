@@ -1,18 +1,27 @@
 version: 0.2
 
+env:
+  variables:
+    # Default values for client_id and client_secret
+    CLIENT_ID: "TOROMartini"
+    CLIENT_SECRET: "TOROMartini"
+
 phases:
   install:
     commands:
-      # Install dependencies if needed
       - echo "Installing AWS CLI if not already installed..."
 
   pre_build:
     commands:
       # Fetch parameters from Parameter Store
-      - PARAMETER=$(aws ssm get-parameter --name "martini-upload-packages" --with-decryption --query "Parameter.Value" --output text)
+      - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
       - BASE_URL=$(echo $PARAMETER | jq -r '.BASE_URL')
       - MARTINI_USER_NAME=$(echo $PARAMETER | jq -r '.MARTINI_USER_NAME')
       - MARTINI_USER_PASSWORD=$(echo $PARAMETER | jq -r '.MARTINI_USER_PASSWORD')
+
+      # Fetch client_id and client_secret from Parameter Store, or use default values if not found
+      - CLIENT_ID=$(echo $PARAMETER | jq -r '.CLIENT_ID // env.CLIENT_ID')
+      - CLIENT_SECRET=$(echo $PARAMETER | jq -r '.CLIENT_SECRET // env.CLIENT_SECRET')
 
       # Fetch OAuth token
       - echo "Fetching the OAuth token..."
@@ -20,8 +29,8 @@ phases:
         GET_TOKEN=$(curl --location "${BASE_URL}/oauth/token" \
           --header "Content-Type: application/x-www-form-urlencoded" \
           --data-urlencode "grant_type=password" \
-          --data-urlencode "client_id=TOROMartini" \
-          --data-urlencode "client_secret=TOROMartini" \
+          --data-urlencode "client_id=${CLIENT_ID}" \
+          --data-urlencode "client_secret=${CLIENT_SECRET}" \
           --data-urlencode "username=${MARTINI_USER_NAME}" \
           --data-urlencode "password=${MARTINI_USER_PASSWORD}")
       - token=$(echo $GET_TOKEN | jq -r '.access_token')
