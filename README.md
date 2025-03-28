@@ -58,7 +58,6 @@ Ensure you use the correct parameter name defined in the `variable.tf` file from
 | `CLIENT_ID` | No | OAuth client ID, default value `TOROMartini` |
 | `CLIENT_SECRET` | Yes | OAuth client secret |
 
-
 ## Running the Pipeline
 
 To manually trigger the pipeline:
