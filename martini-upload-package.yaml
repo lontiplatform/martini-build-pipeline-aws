@@ -4,7 +4,6 @@ env:
   variables:
     # Default values for client_id and client_secret
     CLIENT_ID: "TOROMartini"
-    CLIENT_SECRET: "TOROMartini"
 
 phases:
   install:
@@ -21,7 +20,7 @@ phases:
 
       # Fetch client_id and client_secret from Parameter Store, or use default values if not found
       - CLIENT_ID=$(echo $PARAMETER | jq -r '.CLIENT_ID // env.CLIENT_ID')
-      - CLIENT_SECRET=$(echo $PARAMETER | jq -r '.CLIENT_SECRET // env.CLIENT_SECRET')
+      - CLIENT_SECRET=$(echo $PARAMETER | jq -r '.CLIENT_SECRET')
 
       # Fetch OAuth token
       - echo "Fetching the OAuth token..."

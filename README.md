@@ -35,16 +35,29 @@ These parameter names are defined in the `variable.tf` file from the Terraform m
 
 Ensure the following variables are set:
 
-| **Variable Name**       | **Required** | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|--------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `MARTINI_VERSION`        | Yes          | The version of the Martini runtime to be used when building the Docker image. If not provided (null), it defaults to `LATEST` but also supports explicit values.                                                                                                                                                                                                                                                                                             |
-| `AWS_REGION`             | Yes          | AWS region for ECR.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `AWS_ACCOUNT_ID`         | Yes          | AWS account ID for ECR.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `ECR_REPO_NAME`          | Yes          | ECR repository name.                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `BASE_URL`               | Yes          | The base URL for the API endpoint where packages will be uploaded and requests are made.                                                                                                                                                                                                                                                                                                                                                                      |
-| `MARTINI_USER_NAME`      | Yes          | The username for authentication with the Martini API.                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `MARTINI_USER_PASSWORD`  | Yes          | The password for authentication with the Martini API.                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `${PARAMETER_NAME}`      | Yes          | The parameter store parameter name used to fetch environment variables. Ensure you use the correct parameter name defined in the `variable.tf` file from the [martini-build-image module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-build-image) and the [martini-upload-package module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-upload-package). |
+| Variable | Required | Description |
+|-----------|----------|-------------|                                                                                                                                        
+| `${PARAMETER_NAME}`      | Yes          | The parameter store parameter name used to fetch environment variables.
+
+Ensure you use the correct parameter name defined in the `variable.tf` file from the [martini-build-image module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-build-image) and the [martini-upload-package module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-upload-package). |
+
+#### Image Building Specific
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `MARTINI_VERSION` | No | The version of the Martini runtime to be used when building the Docker image. If not provided (null), it defaults to LATEST but also supports explicit values. |
+| `AWS_REGION` | Yes | AWS region for ECR |
+| `AWS_ACCOUNT_ID` | Yes | AWS account ID for ECR |
+| `ECR_REPO_NAME` | Yes | ECR repository name |
+
+#### Package Upload Specific
+| Parameter | Required | Description | Default Value |
+|-----------|----------|-------------|---------------|
+| `BASE_URL` | Yes | Martini instance base URL |
+| `MARTINI_USER_NAME` | Yes | The username for authentication with the Martini API.|
+| `MARTINI_USER_PASSWORD` | Yes | The password for authentication with the Martini API. |
+| `CLIENT_ID` | No | OAuth client ID | "TOROMartini" |
+| `CLIENT_SECRET` | Yes | OAuth client secret | - |
+
 
 ## Running the Pipeline
 
@@ -60,5 +73,4 @@ This command can also be integrated into your CI/CD workflow for automated pipel
 
 - [Martini Documentation](https://developer.lonti.com/docs/martini/v1/)
 - [AWS CodePipeline Documentation](https://docs.aws.amazon.com/codepipeline/)
-
-By leveraging these tools, you can automate and streamline the deployment of Martini applications, ensuring efficiency and consistency across your development and production environments.
+- [AWS ECR Documentation](https://docs.aws.amazon.com/ecr/)
