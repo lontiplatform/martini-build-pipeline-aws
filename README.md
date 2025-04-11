@@ -55,7 +55,6 @@ Ensure you use the correct parameter name defined in the `variable.tf` file from
 | `BASE_URL` | Yes | Martini instance base URL |
 | `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini.|
 
-
 ## Running the Pipeline
 
 To manually trigger the pipeline:

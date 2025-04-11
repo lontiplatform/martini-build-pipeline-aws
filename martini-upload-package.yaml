@@ -1,5 +1,10 @@
 version: 0.2
 
+env:
+  variables:
+    # Default values for client_id and client_secret
+    CLIENT_ID: "TOROMartini"
+
 phases:
   install:
     commands:
@@ -9,7 +14,7 @@ phases:
   pre_build:
     commands:
       # Fetch parameters from Parameter Store
-      - PARAMETER=$(aws ssm get-parameter --name martini-upload-package --with-decryption --query "Parameter.Value" --output text)
+      - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
       - BASE_URL=$(echo $PARAMETER | jq -r '.BASE_URL')
       - MARTINI_ACCESS_TOKEN=$(echo $PARAMETER | jq -r '.MARTINI_ACCESS_TOKEN')
 
