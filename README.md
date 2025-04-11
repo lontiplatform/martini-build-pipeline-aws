@@ -53,10 +53,8 @@ Ensure you use the correct parameter name defined in the `variable.tf` file from
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `BASE_URL` | Yes | Martini instance base URL |
-| `MARTINI_USER_NAME` | Yes | The username for authentication with the Martini API.|
-| `MARTINI_USER_PASSWORD` | Yes | The password for authentication with the Martini API. |
-| `CLIENT_ID` | No | OAuth client ID, default value `TOROMartini` |
-| `CLIENT_SECRET` | Yes | OAuth client secret |
+| `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini.|
+
 
 ## Running the Pipeline
 

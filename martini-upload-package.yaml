@@ -1,38 +1,17 @@
 version: 0.2
 
-env:
-  variables:
-    # Default values for client_id and client_secret
-    CLIENT_ID: "TOROMartini"
-
 phases:
   install:
     commands:
-      - echo "Installing AWS CLI if not already installed..."
+      # Install dependencies if needed
+      - echo "Skipping dependency installation (customize as needed)"
 
   pre_build:
     commands:
       # Fetch parameters from Parameter Store
-      - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
+      - PARAMETER=$(aws ssm get-parameter --name martini-upload-package --with-decryption --query "Parameter.Value" --output text)
       - BASE_URL=$(echo $PARAMETER | jq -r '.BASE_URL')
-      - MARTINI_USER_NAME=$(echo $PARAMETER | jq -r '.MARTINI_USER_NAME')
-      - MARTINI_USER_PASSWORD=$(echo $PARAMETER | jq -r '.MARTINI_USER_PASSWORD')
-
-      # Fetch client_id and client_secret from Parameter Store, or use default values if not found
-      - CLIENT_ID=$(echo $PARAMETER | jq -r '.CLIENT_ID // env.CLIENT_ID')
-      - CLIENT_SECRET=$(echo $PARAMETER | jq -r '.CLIENT_SECRET')
-
-      # Fetch OAuth token
-      - echo "Fetching the OAuth token..."
-      - |
-        GET_TOKEN=$(curl --location "${BASE_URL}/oauth/token" \
-          --header "Content-Type: application/x-www-form-urlencoded" \
-          --data-urlencode "grant_type=password" \
-          --data-urlencode "client_id=${CLIENT_ID}" \
-          --data-urlencode "client_secret=${CLIENT_SECRET}" \
-          --data-urlencode "username=${MARTINI_USER_NAME}" \
-          --data-urlencode "password=${MARTINI_USER_PASSWORD}")
-      - token=$(echo $GET_TOKEN | jq -r '.access_token')
+      - MARTINI_ACCESS_TOKEN=$(echo $PARAMETER | jq -r '.MARTINI_ACCESS_TOKEN')
 
   build:
     commands:
@@ -47,21 +26,46 @@ phases:
           echo "Uploading $zipfile"
           curl -X POST "${BASE_URL}/esbapi/packages/upload?stateOnCreate=STARTED&replaceExisting=true" \
             -H "accept: application/json" \
-            -H "Content-Type: multipart/form-data" \
             -F "file=@\"${zipfile}\";type=application/x-zip-compressed" \
-            -H "Authorization: Bearer ${token}"
+            -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}"
         done
 
   post_build:
     commands:
-      # Test the API with a custom greeting request
+      # Verify packages were uploaded successfully
       - |
-        API_RESPONSE=$(curl -s "${BASE_URL}/api/greeting?name=Neo" \
-          -H "Authorization: Bearer ${token}")
-      - echo "Response from the API request:"
-      - echo "$API_RESPONSE"
+        echo "Verifying uploaded packages..."
+        PACKAGES_RESPONSE=$(curl -s "${BASE_URL}/esbapi/packages" \
+          -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}")
+        
+        # Initialize tracking variables
+        FAILED_PACKAGES=()
+        VERIFICATION_FAILED=false
+        
+        # Check each package
+        for zipfile in *.zip; do
+          pkg_name=${zipfile%.zip}
+          
+          # Check if package exists in response
+          if echo "$PACKAGES_RESPONSE" | grep -q "\"name\"\s*:\s*\"$pkg_name\""; then
+            echo "SUCCESS: Package $pkg_name verified"
+          else
+            echo "ERROR: Package $pkg_name missing"
+            FAILED_PACKAGES+=("$pkg_name")
+            VERIFICATION_FAILED=true
+          fi
+        done
+        
+        # Final status report
+        if [ "${#FAILED_PACKAGES[@]}" -gt 0 ]; then
+          echo "Package verification failed for:"
+          printf ' - %s\n' "${FAILED_PACKAGES[@]}"
+          exit 1
+        else
+          echo "All packages verified successfully"
+        fi
 
 artifacts:
   files:
-    - '**/*'
+    - '*.zip'
   discard-paths: yes
