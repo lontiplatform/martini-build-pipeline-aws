@@ -78,6 +78,7 @@ phases:
         echo "Verifying uploaded packages..."
         PACKAGES_RESPONSE=$(curl -s "${BASE_URL}/esbapi/packages" \
           -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}") || { echo "ERROR: Failed to fetch packages from API"; exit 1; }
+
         
         # Initialize tracking variables
         FAILED_PACKAGES=()

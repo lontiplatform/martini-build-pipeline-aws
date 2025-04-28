@@ -56,6 +56,7 @@ Ensure you use the correct parameter name defined in the `variable.tf` file from
 | `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini.|
 | `ALLOWED_PACKAGES` | Yes | A specific package name or comma-separated list of package names to be uploaded. If not specified, all packages in the packages/ directory will be zipped and uploaded.|
 
+
 ## Running the Pipeline
 
 To manually trigger the pipeline:
