@@ -1,10 +1,5 @@
 version: 0.2
 
-env:
-  variables:
-    # Default values for client_id and client_secret
-    CLIENT_ID: "TOROMartini"
-
 phases:
   install:
     commands:
@@ -14,15 +9,56 @@ phases:
   pre_build:
     commands:
       # Fetch parameters from Parameter Store
-      - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
-      - BASE_URL=$(echo $PARAMETER | jq -r '.BASE_URL')
-      - MARTINI_ACCESS_TOKEN=$(echo $PARAMETER | jq -r '.MARTINI_ACCESS_TOKEN')
+      - PARAMETER=$(aws ssm ${PARAMETER_NAME}--name "martini-upload-package" --with-decryption --query "Parameter.Value" --output text)
+      - BASE_URL=$(echo "$PARAMETER" | jq -r '.BASE_URL')
+      - MARTINI_ACCESS_TOKEN=$(echo "$PARAMETER" | jq -r '.MARTINI_ACCESS_TOKEN')
+      - ALLOWED_PACKAGES=$(echo "$PARAMETER" | jq -r '.ALLOWED_PACKAGES')
+
+      # Validate required parameters
+      - |
+        if [ -z "$BASE_URL" ]; then
+          echo "ERROR: Missing required parameter: BASE_URL"
+          exit 1
+        fi
+        if [ -z "$MARTINI_ACCESS_TOKEN" ]; then
+          echo "ERROR: Missing required parameter: MARTINI_ACCESS_TOKEN"
+          exit 1
+        fi
+        if [ -z "$ALLOWED_PACKAGES" ]; then
+          echo "ERROR: Missing required parameter: ALLOWED_PACKAGES"
+          exit 1
+        fi
 
   build:
     commands:
+      # Ensure packages directory exists
+      - |
+        if [ ! -d "packages" ]; then
+          echo "ERROR: 'packages' directory not found"
+          exit 1
+        fi
+
       # Prepare staging folder
       - cd packages
-      - for dir in */; do dir=${dir%*/}; zip -r "../${dir}.zip" "$dir"; done
+      - |
+        if [ -n "${ALLOWED_PACKAGES}" ]; then
+          echo "Filtering allowed packages: ${ALLOWED_PACKAGES}"
+          IFS=',' read -r -a allowed_array <<< "$(echo "${ALLOWED_PACKAGES}" | tr -d ' ')"
+          for dir in "${allowed_array[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "Zipping allowed package: $dir"
+              zip -r "../${dir}.zip" "$dir"
+            else
+              echo "WARNING: Package $dir does not exist, skipping."
+            fi
+          done
+        else
+          echo "No allowed packages specified. Zipping all packages found in the 'packages' directory."
+          for dir in */; do
+            dir=${dir%*/} 
+            zip -r "../${dir}.zip" "$dir"
+          done
+        fi
       - cd ..
 
       # Upload zip files to the endpoint
@@ -31,8 +67,8 @@ phases:
           echo "Uploading $zipfile"
           curl -X POST "${BASE_URL}/esbapi/packages/upload?stateOnCreate=STARTED&replaceExisting=true" \
             -H "accept: application/json" \
-            -F "file=@\"${zipfile}\";type=application/x-zip-compressed" \
-            -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}"
+            -F "file=@${zipfile};type=application/x-zip-compressed" \
+            -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}" || { echo "ERROR: Failed to upload $zipfile"; exit 1; }
         done
 
   post_build:
@@ -41,7 +77,8 @@ phases:
       - |
         echo "Verifying uploaded packages..."
         PACKAGES_RESPONSE=$(curl -s "${BASE_URL}/esbapi/packages" \
-          -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}")
+          -H "Authorization: Bearer ${MARTINI_ACCESS_TOKEN}") || { echo "ERROR: Failed to fetch packages from API"; exit 1; }
+
         
         # Initialize tracking variables
         FAILED_PACKAGES=()
@@ -55,7 +92,7 @@ phases:
           if echo "$PACKAGES_RESPONSE" | grep -q "\"name\"\s*:\s*\"$pkg_name\""; then
             echo "SUCCESS: Package $pkg_name verified"
           else
-            echo "ERROR: Package $pkg_name missing"
+            echo "ERROR: Package $pkg_name missing in API response. Please check the upload process."
             FAILED_PACKAGES+=("$pkg_name")
             VERIFICATION_FAILED=true
           fi
