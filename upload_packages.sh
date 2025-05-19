@@ -18,6 +18,9 @@ SUCCESS_CHECK_TIMEOUT=${SUCCESS_CHECK_TIMEOUT:-6}
 SUCCESS_CHECK_DELAY=${SUCCESS_CHECK_DELAY:-30}
 SUCCESS_CHECK_PACKAGE_NAME=${SUCCESS_CHECK_PACKAGE_NAME:-''}
 
+# Remove trailing slash from BASE_URL if present
+BASE_URL="${BASE_URL%/}"
+
 log INFO "BASE_URL: $BASE_URL"
 log INFO "PACKAGE_DIR: $PACKAGE_DIR"
 log INFO "PACKAGE_NAME_PATTERN: $PACKAGE_NAME_PATTERN"
@@ -70,13 +73,21 @@ log INFO "Zipping packages: ${MATCHING_PACKAGES[*]}"
 log INFO "Created zip: $FINAL_ZIP"
 
 upload_package() {
-  log INFO "Uploading packages..."
-  response=$(curl --progress-bar -w "%{http_code}" -o response_body.log     "${BASE_URL}/esbapi/packages/upload?stateOnCreate=STARTED&replaceExisting=true"     -H "accept:application/json"     -F "file=@${FINAL_ZIP};type=application/zip"     -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
+  local upload_url="${BASE_URL}/esbapi/packages/upload?stateOnCreate=STARTED&replaceExisting=true"
+  log INFO "Uploading packages to: $upload_url"
+
+  response=$(curl --progress-bar \
+    -w "%{http_code}" \
+    -o response_body.log \
+    "$upload_url" \
+    -H "accept:application/json" \
+    -F "file=@${FINAL_ZIP};type=application/zip" \
+    -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
 
   http_code=$(echo "$response" | tail -c 4)
 
   if [ "$ASYNC_UPLOAD" = "true" ] && { [ "$http_code" = "504" ] || { [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; }; }; then
-  log INFO "Async upload accepted (HTTP $http_code)"
+    log INFO "Async upload accepted (HTTP $http_code)"
   elif [ "$ASYNC_UPLOAD" = "false" ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
     log INFO "Upload successful (HTTP $http_code)"
     cat response_body.log
@@ -94,13 +105,15 @@ check_package_started() {
   ATTEMPTS=0
 
   while [ "$ATTEMPTS" -lt "$SUCCESS_CHECK_TIMEOUT" ]; do
-    RESPONSE=$(curl -s -X GET "${BASE_URL}/esbapi/packages/${PACKAGE_NAME}?version=2"       -H "accept:application/json"       -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
+    response=$(curl -s -X GET "${BASE_URL}/esbapi/packages/${PACKAGE_NAME}?version=2" \
+      -H "accept:application/json" \
+      -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
 
-    if printf "%s" "$RESPONSE" | jq -e . >/dev/null 2>&1; then
-      STATUS=$(echo "$RESPONSE" | jq -r '.status')
+    if printf "%s" "$response" | jq -e . >/dev/null 2>&1; then
+      STATUS=$(echo "$response" | jq -r '.status')
       if [ "$STATUS" = "STARTED" ]; then
         log INFO "Package '$PACKAGE_NAME' started successfully"
-        printf "%s\n" "$RESPONSE" >> results.log
+        printf "%s\n" "$response" >> results.log
         return 0
       fi
     fi

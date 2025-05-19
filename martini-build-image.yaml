@@ -13,6 +13,9 @@ phases:
       - yamllint -c .yamllint buildspec.yml || echo "YAML lint warnings found (non-blocking)"
 
       - echo "Fetching environment variables from Parameter Store..."
+      - 'PARAMETER_NAME=${PARAMETER_NAME:-martini-build-image}'
+      - 'echo "Using Parameter Store key: ${PARAMETER_NAME}"'
+
       - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
       - export MARTINI_VERSION=$(echo "$PARAMETER" | jq -r '.MARTINI_VERSION')
       - export AWS_REGION=$(echo "$PARAMETER" | jq -r '.AWS_REGION')
