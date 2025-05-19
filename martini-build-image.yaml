@@ -1,37 +1,41 @@
+---
 version: 0.2
 
 phases:
   install:
     commands:
-      # Install necessary dependencies
+      - echo "Installing yamllint..."
+      - pip3 install yamllint
 
   pre_build:
     commands:
-      # Fetch environment variables from Parameter Store
+      - echo "Linting buildspec.yml..."
+      - yamllint -c .yamllint buildspec.yml || echo "YAML lint warnings found (non-blocking)"
+
       - echo "Fetching environment variables from Parameter Store..."
       - PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
-      - MARTINI_VERSION=$(echo $PARAMETER | jq -r '.MARTINI_VERSION')
-      - AWS_REGION=$(echo $PARAMETER | jq -r '.AWS_REGION')
-      - AWS_ACCOUNT_ID=$(echo $PARAMETER | jq -r '.AWS_ACCOUNT_ID')
-      - ECR_REPO_NAME=$(echo $PARAMETER | jq -r '.ECR_REPO_NAME')
+      - export MARTINI_VERSION=$(echo "$PARAMETER" | jq -r '.MARTINI_VERSION')
+      - export AWS_REGION=$(echo "$PARAMETER" | jq -r '.AWS_REGION')
+      - export AWS_ACCOUNT_ID=$(echo "$PARAMETER" | jq -r '.AWS_ACCOUNT_ID')
+      - export ECR_REPO_NAME=$(echo "$PARAMETER" | jq -r '.ECR_REPO_NAME')
 
   build:
     commands:
-      # Build the Docker image
-      - docker build --build-arg MARTINI_VERSION=${MARTINI_VERSION} -t mr:${MARTINI_VERSION} .
+      - echo "Building Docker image for Martini version ${MARTINI_VERSION}..."
+      - docker build --build-arg MARTINI_VERSION="${MARTINI_VERSION}" -t mr:"${MARTINI_VERSION}" .
 
-      # Authenticate with AWS ECR
-      - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      - echo "Authenticating with AWS ECR..."
+      - aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-      # Tag the Docker image for AWS ECR
-      - docker tag mr:${MARTINI_VERSION} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${MARTINI_VERSION}
+      - echo "Tagging image..."
+      - docker tag mr:"${MARTINI_VERSION}" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${MARTINI_VERSION}"
 
   post_build:
     commands:
-      # Push the Docker image to AWS ECR
-      - docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${MARTINI_VERSION}
+      - echo "Pushing image to ECR..."
+      - docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${MARTINI_VERSION}"
 
 artifacts:
   files:
     - '**/*'
-  discard-paths: yes
+  discard-paths: true
