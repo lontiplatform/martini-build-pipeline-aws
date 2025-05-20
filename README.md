@@ -75,4 +75,3 @@ This command can be integrated into GitHub Actions or other CI/CD systems for au
 - [Martini Documentation](https://developer.lonti.com/docs/martini/v1/)
 - [AWS CodePipeline Documentation](https://docs.aws.amazon.com/codepipeline/)
 - [AWS ECR Documentation](https://docs.aws.amazon.com/ecr/)
-- [Terragrunt](https://terragrunt.gruntwork.io/docs/)
