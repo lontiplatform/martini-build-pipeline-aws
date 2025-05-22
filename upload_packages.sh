@@ -9,6 +9,7 @@ log() {
   printf "[%s] [%s] %s\n" "$TIMESTAMP" "$LEVEL" "$*"
 }
 
+# Required variables
 BASE_URL=${BASE_URL:?'BASE_URL variable missing.'}
 MARTINI_ACCESS_TOKEN=${MARTINI_ACCESS_TOKEN:?'MARTINI_ACCESS_TOKEN variable missing.'}
 PACKAGE_DIR=${PACKAGE_DIR:-'packages'}
@@ -84,7 +85,7 @@ upload_package() {
     -F "file=@${FINAL_ZIP};type=application/zip" \
     -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
 
-  http_code=$(echo "$response" | tail -c 4)
+  http_code="${response: -3}"
 
   if [ "$ASYNC_UPLOAD" = "true" ] && { [ "$http_code" = "504" ] || { [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; }; }; then
     log INFO "Async upload accepted (HTTP $http_code)"
@@ -101,43 +102,54 @@ upload_package() {
 upload_package
 
 check_package_started() {
-  PACKAGE_NAME=$1
-  ATTEMPTS=0
+  local package_name="$1"
+  local attempts=0
 
-  while [ "$ATTEMPTS" -lt "$SUCCESS_CHECK_TIMEOUT" ]; do
-    response=$(curl -s -X GET "${BASE_URL}/esbapi/packages/${PACKAGE_NAME}?version=2" \
+  while [ "$attempts" -lt "$SUCCESS_CHECK_TIMEOUT" ]; do
+    response=$(curl -s -X GET "${BASE_URL}/esbapi/packages/${package_name}?version=2" \
       -H "accept:application/json" \
       -H "Authorization:Bearer $MARTINI_ACCESS_TOKEN")
 
     if printf "%s" "$response" | jq -e . >/dev/null 2>&1; then
-      STATUS=$(echo "$response" | jq -r '.status')
-      if [ "$STATUS" = "STARTED" ]; then
-        log INFO "Package '$PACKAGE_NAME' started successfully"
+      status=$(echo "$response" | jq -r '.status')
+      if [ "$status" = "STARTED" ]; then
+        log INFO "Package '$package_name' started successfully"
         printf "%s\n" "$response" >> results.log
         return 0
       fi
     fi
 
-    log INFO "Waiting for $PACKAGE_NAME... ($((ATTEMPTS+1))/$SUCCESS_CHECK_TIMEOUT)"
+    log INFO "Waiting for $package_name... ($((attempts+1))/$SUCCESS_CHECK_TIMEOUT)"
     sleep "$SUCCESS_CHECK_DELAY"
-    ATTEMPTS=$((ATTEMPTS+1))
+    attempts=$((attempts+1))
   done
 
-  log ERROR "Package '$PACKAGE_NAME' did not start in time"
-  printf "Package '%s' timed out\n" "$PACKAGE_NAME" >> results.log
+  log ERROR "Package '$package_name' did not start in time"
+  printf "Package '%s' timed out\n" "$package_name" >> results.log
   return 1
 }
 
 log INFO "Polling for package start status..."
+
+failures=0
 if [ -n "$SUCCESS_CHECK_PACKAGE_NAME" ]; then
-  check_package_started "$SUCCESS_CHECK_PACKAGE_NAME" &
+  check_package_started "$SUCCESS_CHECK_PACKAGE_NAME" || failures=$((failures+1))
 else
-  for PACKAGE_NAME in "${MATCHING_PACKAGES[@]}"; do
-    check_package_started "$PACKAGE_NAME" &
+  pids=()
+  for package in "${MATCHING_PACKAGES[@]}"; do
+    check_package_started "$package" &
+    pids+=("$!")
+  done
+
+  for pid in "${pids[@]}"; do
+    wait "$pid" || failures=$((failures+1))
   done
 fi
 
-wait
+if [ "$failures" -ne 0 ]; then
+  log ERROR "One or more packages failed to start."
+  exit 1
+fi
 
 log INFO "Done polling for package startup:"
 cat results.log
