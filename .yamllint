@@ -1,0 +1,16 @@
+# .yamllint
+extends: default
+
+rules:
+  line-length:
+    max: 120        # Allow lines up to 120 characters
+    level: warning  # Only warn (don't fail build)
+
+  truthy:
+    allowed-values: ['true', 'false']  # Accept lowercase booleans
+
+  comments:
+    require-starting-space: true
+
+  document-start:
+    present: true

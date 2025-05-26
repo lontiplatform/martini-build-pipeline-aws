@@ -1,74 +1,111 @@
 # Martini Build Pipeline with AWS CodePipeline
 
-This Martini Build Pipeline leverages AWS CodePipeline to provide robust Continuous Integration and Continuous Deployment (CI/CD) workflows for Martini applications. It offers flexibility and control over deploying the Martini Server Runtime and its packages, whether you are building Docker images or deploying packages to existing instances.
+This repository enables robust CI/CD workflows for Martini applications using **AWS CodePipeline** and **AWS CodeBuild**. It supports both building Docker images of the Martini Server Runtime and uploading application packages to existing Martini instances.
 
-## Repositories Overview
+##  Repository Overview
 
-### Martini Build Pipeline AWS ([GitHub Link](https://github.com/lontiplatform/martini-build-pipeline-aws))
+### Martini Build Pipeline AWS
+> GitHub: [martini-build-pipeline-aws](https://github.com/lontiplatform/martini-build-pipeline-aws)
 
-This repository contains `buildspec` files for AWS CodePipeline:
+This repository contains `buildspec` YAML files and helper scripts for two distinct Martini workflows:
 
-- **`martini-build-image.yaml`**: Builds a Docker image bundling the Martini Server Runtime and packages, then pushes it to Amazon ECR.
-- **`martini-upload-package.yaml`**: Packages and uploads Martini applications to an existing runtime instance, ensuring streamlined updates.
+#### 1. `martini-build-image.yaml`
+Builds a Docker image that bundles:
+- Martini Server Runtime (from a specific version)
+- Application packages
 
-### Cloning the Repository
+The image is pushed to Amazon ECR for deployment.
 
-Clone the required repository:
+Supporting file:
+- **`Dockerfile`**  Defines how the Martini runtime image is built and bundled with application packages.
+
+#### 2. `martini-upload-package.yaml`
+Zips and uploads application packages to a live Martini runtime instance via the Martini API. Supports async mode and polling to verify startup.
+
+Supporting file:
+- **`upload_packages.sh`**  A reusable shell script that handles package filtering, upload, and optional startup status polling.
+
+---
+
+##  Cloning This Repository
 
 ```bash
 git clone https://github.com/lontiplatform/martini-build-pipeline-aws.git
 ```
 
-### Updating the Buildspec Files
+---
 
-Replace `${PARAMETER_NAME}` with the actual parameter name in the following command from each buildspec file:
+##  Environment Configuration
+
+Both buildspec files rely on environment parameters retrieved from **AWS SSM Parameter Store**. These parameters can be managed via:
+
+- Terraform (recommended)
+- Manual SSM creation
+
+To inspect or test SSM values locally:
 
 ```bash
-PARAMETER=$(aws ssm get-parameter --name "${PARAMETER_NAME}" --with-decryption --query "Parameter.Value" --output text)
+PARAMETER_NAME="${PARAMETER_NAME:-martini-upload-package}"
+echo "Using Parameter Store key: $PARAMETER_NAME"
+PARAMETER=$(aws ssm get-parameter --name "$PARAMETER_NAME" --with-decryption --query "Parameter.Value" --output text)
 ```
 
-These parameter names are defined in the `variable.tf` file from the Terraform modules:  
-- [martini-upload-package module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-upload-package)  
-- [martini-build-image module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-build-image)  
+Terraform modules define SSM configuration:
+
+- [`martini-upload-package` module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-upload-package)
+- [`martini-build-image` module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-build-image)
+
+---
 
 ## Environment Variables
 
-Ensure the following variables are set:
+Ensure the following variables are defined via SSM Parameter Store or injected in CodeBuild:
 
 | Variable | Required | Description |
-|-----------|----------|-------------|                                                                                                                                        
-| `${PARAMETER_NAME}`      | Yes          | The parameter store parameter name used to fetch environment variables.
+|----------|----------|-------------|
+| `PARAMETER_NAME` | Yes | The name of the SSM parameter that holds the configuration JSON used by the pipeline. |
 
-Ensure you use the correct parameter name defined in the `variable.tf` file from the [martini-build-image module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-build-image) and the [martini-upload-package module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/blob/main/martini-upload-package). |
+---
 
-#### Image Building Specific
+### Image Build Parameters
+
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `MARTINI_VERSION` | No | The version of the Martini runtime to be used when building the Docker image. If not provided (null), it defaults to LATEST but also supports explicit values. |
-| `AWS_REGION` | Yes | AWS region for ECR |
-| `AWS_ACCOUNT_ID` | Yes | AWS account ID for ECR |
-| `ECR_REPO_NAME` | Yes | ECR repository name |
+| `MARTINI_VERSION` | No | The version of the Martini runtime to be used when building the Docker image. If not provided, it defaults to LATEST. |
+| `ECR_REPO_NAME` | Yes | ECR repository name. |
 
-#### Package Upload Specific
+---
+
+### Package Upload Parameters
+
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `BASE_URL` | Yes | Martini instance base URL |
-| `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini.|
-| `ALLOWED_PACKAGES` | Yes | A specific package name or comma-separated list of package names to be uploaded. If not specified, all packages in the packages/ directory will be zipped and uploaded.|
+| `BASE_URL` | Yes | Martini instance base URL. |
+| `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini API. |
+| `PACKAGE_NAME_PATTERN` | No | Regex pattern to filter packages. |
+| `PACKAGE_DIR` | No | Directory to scan for packages (default: `packages`). |
+| `ASYNC_UPLOAD` | No | If true, tolerates 504 responses and uses polling. |
+| `SUCCESS_CHECK_TIMEOUT` | No | Max polling attempts for startup verification. |
+| `SUCCESS_CHECK_DELAY` | No | Delay between polling attempts (in seconds). |
+| `SUCCESS_CHECK_PACKAGE_NAME` | No | Specific package to verify startup status (used during polling). |
 
+---
 
 ## Running the Pipeline
 
-To manually trigger the pipeline:
+You can start a pipeline execution using the AWS CLI:
 
 ```bash
 aws codepipeline start-pipeline-execution --name pipeline-name
 ```
 
-This command can also be integrated into your CI/CD workflow for automated pipeline execution.
+This command can be integrated into GitHub Actions or other CI/CD systems for automation.
+
+---
 
 ## Additional Resources
 
 - [Martini Documentation](https://developer.lonti.com/docs/martini/v1/)
-- [AWS CodePipeline Documentation](https://docs.aws.amazon.com/codepipeline/)
-- [AWS ECR Documentation](https://docs.aws.amazon.com/ecr/)
+- [AWS CodePipeline Docs](https://docs.aws.amazon.com/codepipeline/)
+- [AWS CodeBuild Docs](https://docs.aws.amazon.com/codebuild/)
+- [AWS ECR Docs](https://docs.aws.amazon.com/ecr/)
