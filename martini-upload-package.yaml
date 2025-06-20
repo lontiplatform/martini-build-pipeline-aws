@@ -4,13 +4,19 @@ version: 0.2
 phases:
   install:
     commands:
-      - echo "Installing ShellCheck, shfmt, and yamllint"
-      - curl -sLO https://github.com/koalaman/shellcheck/releases/download/v0.9.0/shellcheck-v0.9.0.linux.x86_64.tar.xz
-      - tar -xf shellcheck-v0.9.0.linux.x86_64.tar.xz
+      - echo "Installing ShellCheck, shfmt, and yamllint for ARM64"
+
+      # ShellCheck (ARM64)
+      - curl -sLO https://github.com/koalaman/shellcheck/releases/download/v0.9.0/shellcheck-v0.9.0.linux.aarch64.tar.xz
+      - tar -xf shellcheck-v0.9.0.linux.aarch64.tar.xz
       - cp shellcheck-v0.9.0/shellcheck /usr/local/bin/
       - chmod +x /usr/local/bin/shellcheck
-      - curl -sLo /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_amd64
+
+      # shfmt (ARM64)
+      - curl -sLo /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_arm64
       - chmod +x /usr/local/bin/shfmt
+
+      # yamllint (universal Python)
       - pip3 install yamllint
 
   pre_build:
