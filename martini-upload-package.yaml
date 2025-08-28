@@ -22,7 +22,7 @@ phases:
       - curl -sLo /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_arm64
       - chmod +x /usr/local/bin/shfmt
 
-      # yamllint (universal Python)
+      # yamllint (Python)
       - pip3 install yamllint
 
   pre_build:
