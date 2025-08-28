@@ -1,4 +1,10 @@
 ---
+# ------------------------
+# Name: Martini Build Pipeline for Docker Images
+# Description: This pipeline zips and uploads packages to a Martini Server Runtime
+# Author: Lonti <support@lonti.com>
+# ------------------------
+
 version: 0.2
 
 phases:
