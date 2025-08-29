@@ -1,4 +1,10 @@
 ---
+# ------------------------
+# Name: Martini Build Pipeline for Docker Images
+# Description: This pipeline builds a Martini Server Runtime Docker Image with packages and pushes to AWS Elastic Container Registry (ECR).
+# Author: Lonti <support@lonti.com>
+# ------------------------
+
 version: 0.2
 
 phases:
