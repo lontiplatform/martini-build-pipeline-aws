@@ -1,0 +1,65 @@
+repos:
+  # Terraform Hooks
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.103.0
+    hooks:
+      - id: terraform_fmt
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*\.tf$
+
+      - id: terraform_validate
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*\.tf$
+        args:
+          - --init-args=-lockfile=readonly
+          - --args=-json
+          - --args=-no-color
+
+      - id: terraform_docs
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*
+        args:
+          - --hook-config=--add-to-existing-file=true
+
+      - id: terraform_checkov
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*
+        args:
+          - --args=--directory=terraform
+          - --args=--config-file=.checkov.yaml
+          - --args=--quiet
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: ["--config-file=.yamllint"]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+        files: \.sh$
+        args: ["--severity=warning"]
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.7.0-2
+    hooks:
+      - id: shfmt-src
+        files: \.sh$
+        args: ["-w"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+        stages: [commit]
+      - id: trailing-whitespace
+        stages: [commit]
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict

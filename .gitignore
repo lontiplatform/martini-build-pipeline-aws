@@ -1,0 +1,73 @@
+# Local Terraform directories
+**/.terraform/
+**/.terraform/providers/
+**/.terraform.lock.hcl
+
+# Terraform State
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+terraform.tfvars
+example.tfvars
+
+# Allow safe, non-sensitive examples
+!example.tfvars
+
+# Checkov downloaded modules (if enabled)
+.external_modules/
+
+# Pre-commit cache
+.pre-commit-config.yaml~
+.pre-commit-cache/
+.pre-commit-hooks.yaml
+
+# Local temporary hook files
+*.rej
+*.orig
+
+# local Python files used by Checkov or scripts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# Shell script linting (Ignore auto-generated)
+
+*.sh~
+*.swp
+
+# Logs
+
+*.log
+logs/
+**/logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+
+# VS Code
+.vscode/
+.history/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~

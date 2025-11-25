@@ -1,111 +1,174 @@
-# Martini Build Pipeline with AWS CodePipeline
+# Martini CI/CD Pipeline With AWS CodePipeline
 
-This repository enables robust CI/CD workflows for Martini applications using **AWS CodePipeline** and **AWS CodeBuild**. It supports both building Docker images of the Martini Server Runtime and uploading application packages to existing Martini instances.
+This repository contains the full CI/CD implementation for Martini applications using **AWS CodePipeline**, **AWS CodeBuild**, and **Terraform**. It consolidates buildspecs, helper scripts, Terraform modules, and pipeline stacks into a single repository.
 
-##  Repository Overview
+There are two pipelines:
 
-### Martini Build Pipeline AWS
-> GitHub: [martini-build-pipeline-aws](https://github.com/lontiplatform/martini-build-pipeline-aws)
-
-This repository contains `buildspec` YAML files and helper scripts for two distinct Martini workflows:
-
-#### 1. `martini-build-image.yaml`
-Builds a Docker image that bundles:
-- Martini Server Runtime (from a specific version)
-- Application packages
-
-The image is pushed to Amazon ECR for deployment.
-
-Supporting file:
-- **`Dockerfile`**  Defines how the Martini runtime image is built and bundled with application packages.
-
-#### 2. `martini-upload-package.yaml`
-Zips and uploads application packages to a live Martini runtime instance via the Martini API. Supports async mode and polling to verify startup.
-
-Supporting file:
-- **`upload_packages.sh`**  A reusable shell script that handles package filtering, upload, and optional startup status polling.
+1. **Build Martini Runtime Image** – builds a Docker image that bundles a specific Martini runtime version and one or more packages, and pushes it to Amazon ECR.
+2. **Upload Martini Packages** – zips one or more Martini packages from this repository and uploads them to a running Martini instance via the Martini API.
 
 ---
 
-##  Cloning This Repository
+## Repository Structure
 
-```bash
-git clone https://github.com/lontiplatform/martini-build-pipeline-aws.git
+```text
+.
+├── .github/
+│   └── workflows/
+│       └── precommit.yml        # GitHub Actions workflow to run pre-commit checks
+├── .pre-commit-config.yaml      # Local linting / formatting hooks
+├── packages/
+│   └── sample-package/          # Example Martini package layout
+│       ├── code/
+│       └── conf/
+├── terraform/
+│   ├── buildspecs/              # CodeBuild buildspec YAML files
+│   ├── modules/                 # Reusable Terraform modules (cloudwatch, ecr, iam, s3, ssm, etc.)
+│   ├── pipelines/
+│   │   ├── martini-build-image/ # Pipeline stack for building Docker images
+│   │   └── martini-upload-package/ # Pipeline stack for uploading packages
+│   └── scripts/                 # Supporting artifacts (Dockerfile, upload script)
+└── .yamllint                    # YAML linting config
 ```
 
----
-
-##  Environment Configuration
-
-Both buildspec files rely on environment parameters retrieved from **AWS SSM Parameter Store**. These parameters can be managed via:
-
-- Terraform (recommended)
-- Manual SSM creation
-
-To inspect or test SSM values locally:
-
-```bash
-PARAMETER_NAME="${PARAMETER_NAME:-martini-upload-package}"
-echo "Using Parameter Store key: $PARAMETER_NAME"
-PARAMETER=$(aws ssm get-parameter --name "$PARAMETER_NAME" --with-decryption --query "Parameter.Value" --output text)
-```
-
-Terraform modules define SSM configuration:
-
-- [`martini-upload-package` module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-upload-package)
-- [`martini-build-image` module](https://github.com/lontiplatform/martini-build-pipeline-aws-terraform/tree/main/martini-build-image)
+- The **Terraform root** and **pipeline stacks** are documented under `terraform/README.md` and the two pipeline READMEs.
+- The **sample package** exists for testing only; it is not a production package.
 
 ---
 
-## Environment Variables
+## Workflows
 
-Ensure the following variables are defined via SSM Parameter Store or injected in CodeBuild:
+### 1. Build Martini Runtime Image
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PARAMETER_NAME` | Yes | The name of the SSM parameter that holds the configuration JSON used by the pipeline. |
+The **martini-build-image** pipeline:
 
----
+- Uses `terraform/buildspecs/martini-build-image.yaml` as the buildspec.
+- Uses `terraform/scripts/dockerfile` to define the runtime image.
+- Checks out this GitHub repository via CodeStar Connections.
+- Invokes AWS CodeBuild to:
+  - Download Martini runtime (based on a configured version).
+  - Bundle one or more packages from `packages/`.
+  - Build and push an image to ECR.
+- Stores logs in CloudWatch and artifacts in S3.
 
-### Image Build Parameters
+### 2. Upload Martini Packages
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `MARTINI_VERSION` | No | The version of the Martini runtime to be used when building the Docker image. If not provided, it defaults to LATEST. |
-| `ECR_REPO_NAME` | Yes | ECR repository name. |
+The **martini-upload-package** pipeline:
 
----
-
-### Package Upload Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `BASE_URL` | Yes | Martini instance base URL. |
-| `MARTINI_ACCESS_TOKEN` | Yes | Authentication token for Martini API. |
-| `PACKAGE_NAME_PATTERN` | No | Regex pattern to filter packages. |
-| `PACKAGE_DIR` | No | Directory to scan for packages (default: `packages`). |
-| `ASYNC_UPLOAD` | No | If true, tolerates 504 responses and uses polling. |
-| `SUCCESS_CHECK_TIMEOUT` | No | Max polling attempts for startup verification. |
-| `SUCCESS_CHECK_DELAY` | No | Delay between polling attempts (in seconds). |
-| `SUCCESS_CHECK_PACKAGE_NAME` | No | Specific package to verify startup status (used during polling). |
+- Uses `terraform/buildspecs/martini-upload-package.yaml` as the buildspec.
+- Uses `terraform/scripts/upload_packages.sh` to:
+  - Zip packages from `packages/`.
+  - Filter packages with a regex (`PACKAGE_NAME_PATTERN`).
+  - Upload them to a remote Martini runtime (`BASE_URL`) via the API.
+  - Optionally poll for successful startup using configurable delay/timeout values.
+- Uses SSM Parameter Store to inject configuration and secrets into CodeBuild.
 
 ---
 
-## Running the Pipeline
+## Requirements
 
-You can start a pipeline execution using the AWS CLI:
-
-```bash
-aws codepipeline start-pipeline-execution --name pipeline-name
-```
-
-This command can be integrated into GitHub Actions or other CI/CD systems for automation.
+- **Terraform**: v1.3.0+
+- **AWS**:
+  - AWS CLI configured with access to create CodePipeline, CodeBuild, ECR, S3, SSM, IAM, and CloudWatch.
+  - An AWS account and region where pipelines will run.
+- **GitHub**:
+  - A GitHub repository that will act as the **source** for the pipelines (usually this one).
+  - An AWS **CodeStar Connection ARN** to that GitHub repository (configured manually in the AWS console).
+- **Local tools** (for development):
+  - `pre-commit` installed.
+  - Python and any tools required by `.pre-commit-config.yaml`.
 
 ---
 
-## Additional Resources
+## Local Development Workflow
 
-- [Martini Documentation](https://developer.lonti.com/docs/martini/v1/)
-- [AWS CodePipeline Docs](https://docs.aws.amazon.com/codepipeline/)
-- [AWS CodeBuild Docs](https://docs.aws.amazon.com/codebuild/)
-- [AWS ECR Docs](https://docs.aws.amazon.com/ecr/)
+A typical flow when working with this repository:
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd <repo>
+   ```
+
+2. **Install pre-commit hooks**
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   ```
+
+3. **Run checks locally (optional but recommended)**
+   ```bash
+   pre-commit run --all-files
+   ```
+
+4. **Configure variables for the pipeline stack(s)**
+   For each pipeline under `terraform/pipelines/...`, prepare:
+   - `terraform.tfvars` (or equivalent) with values such as:
+     - `repository_name`
+     - `branch_name`
+     - `connection_arn`
+     - `pipeline_name`
+     - `log_retention_days`
+     - Any workflow-specific settings.
+
+5. **Deploy a pipeline stack with Terraform**
+   Example for the upload-package pipeline:
+   ```bash
+   cd terraform/pipelines/martini-upload-package
+
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+   Similarly, use `terraform/pipelines/martini-build-image` for the image build pipeline.
+
+6. **Trigger a pipeline run**
+
+   Once the stack is applied:
+   - Push a commit to the configured GitHub branch, or
+   - Manually trigger the pipeline via the AWS console, or
+   - Use the AWS CLI:
+     ```bash
+     aws codepipeline start-pipeline-execution --name <pipeline-name>
+     ```
+
+---
+
+## SSM Parameter Store Configuration
+
+The pipelines rely on SSM Parameter Store to provide configuration to CodeBuild via a parameter that contains JSON.
+
+At a minimum, ensure the following keys exist in the JSON (for the upload pipeline):
+
+- `BASE_URL`
+- `MARTINI_ACCESS_TOKEN`
+- `PACKAGE_NAME_PATTERN` (optional)
+- `PACKAGE_DIR` (optional, defaults to `packages`)
+- `ASYNC_UPLOAD` (optional)
+- `SUCCESS_CHECK_TIMEOUT` (optional)
+- `SUCCESS_CHECK_DELAY` (optional)
+- `SUCCESS_CHECK_PACKAGE_NAME` (optional)
+
+The **upload pipeline module** exposes variables such as `parameter_name`, `package_dir`, `package_name_pattern`, `async_upload`, and polling-related settings to control this behaviour.
+
+---
+
+## GitHub Actions and pre-commit
+
+- `.github/workflows/precommit.yml` runs the same checks defined in `.pre-commit-config.yaml` on each push or pull request.
+- Typical checks include:
+  - Terraform formatting / validation
+  - YAML linting
+  - Basic shell / code style checks (depending on configured hooks)
+
+This ensures changes to Terraform, buildspecs, and scripts remain consistent.
+
+---
+
+## References
+
+- Martini Documentation
+- AWS CodePipeline Documentation
+- AWS CodeBuild Documentation
+- Terraform Documentation
