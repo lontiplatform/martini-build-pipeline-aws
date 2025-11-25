@@ -168,7 +168,8 @@ This ensures changes to Terraform, buildspecs, and scripts remain consistent.
 
 ## References
 
-- Martini Documentation
-- AWS CodePipeline Documentation
-- AWS CodeBuild Documentation
-- Terraform Documentation
+- [Martini Documentation](https://developer.lonti.com/docs/martini/)
+- [Terraform Template Repository](https://github.com/lontiplatform/martini-build-pipeline-aws/tree/main/terraform)
+- [AWS CodePipeline Documentation](https://docs.aws.amazon.com/codepipeline/)
+- [AWS CodeBuild Documentation](https://docs.aws.amazon.com/codebuild/)
+- [Terraform Documentation](https://developer.hashicorp.com/terraform/docs)
