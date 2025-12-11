@@ -10,12 +10,12 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - PARAMETER=$(aws ssm get-parameter --name "$BUILD_IMAGE_PARAMETER" --with-decryption --query "Parameter.Value" --output text)
-      - export MARTINI_VERSION=$(echo "$PARAMETER" | jq -r '.martini_version')
+      - export MARTINI_VERSION=$(aws ssm get-parameter --name "$BUILD_IMAGE_PARAMETER" --query "Parameter.Value" --output text 2>/dev/null || echo "")
 
-      - "missing=0; for var in BUILD_IMAGE_PARAMETER MARTINI_VERSION ECR_REPO_URI; do if [ -z \"${!var}\" ] || [ \"${!var}\" = \"null\" ]; then echo \"ERROR: $var is missing or empty\"; missing=1; fi; done; if [ \"$missing\" = \"1\" ]; then exit 1; fi"
+      - "missing=0; for var in BUILD_IMAGE_PARAMETER ECR_REPO_URI; do if [ -z \"${!var}\" ] || [ \"${!var}\" = \"null\" ]; then echo \"ERROR: $var is missing or empty\"; missing=1; fi; done; if [ \"$missing\" = \"1\" ]; then exit 1; fi"
 
       - aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REPO_URI"
+
 
   build:
     commands:

@@ -129,15 +129,10 @@ module "build_image_parameter" {
   version = "2.0.1"
 
   name        = local.ssm_parameter_name
-  description = "Martini build image parameter"
+  description = "Martini runtime version for build-image pipeline"
 
-  secure_type = true
-  key_id      = var.kms_key_arn
-
-  value = jsonencode({
-    martini_version = var.martini_version
-    ecr_repo_name   = local.ecr_repo_name
-  })
+  secure_type = false
+  value       = var.martini_version
 }
 
 module "iam_codebuild" {
@@ -177,11 +172,6 @@ resource "aws_codebuild_project" "martini_build_image" {
     type                        = "ARM_CONTAINER"
     privileged_mode             = true
     image_pull_credentials_type = "CODEBUILD"
-
-    environment_variable {
-      name  = "MARTINI_VERSION"
-      value = var.martini_version
-    }
 
     environment_variable {
       name  = "ECR_REPO_URI"
