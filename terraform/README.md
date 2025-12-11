@@ -1,8 +1,8 @@
 # Terraform Layout
 
-This folder contains all Terraform configuration related to the Martini CI/CD pipelines. It is organized into reusable modules and thin pipeline stacks.
+This directory contains all Terraform / OpenTofu configuration used to provision Martini CI/CD pipelines on AWS. Pipelines are defined under `terraform/pipelines/` and can be deployed independently.
 
-Typically, you run `terraform` from inside one of the pipeline directories under `terraform/pipelines/`.
+You typically run `terraform` (or `tofu`) from within a specific pipeline directory.
 
 ---
 
@@ -10,46 +10,43 @@ Typically, you run `terraform` from inside one of the pipeline directories under
 
 ### `buildspecs/`
 
-Buildspec YAML files consumed by CodeBuild:
+Buildspec YAML files executed by AWS CodeBuild:
 
 - `martini-build-image.yaml`
 - `martini-upload-package.yaml`
 
-These files define how CodeBuild should build the Docker image or upload packages. They are referenced via the `buildspec_file` variable in the pipeline modules.
+Each pipeline references its buildspec via input variables (e.g., `buildspec_file`).
 
 ---
 
 ### `modules/`
 
-Reusable Terraform modules shared by both pipelines, for example:
+Local IAM modules shared by both pipelines:
 
-- `cloudwatch/` – CloudWatch log groups and retention.
-- `ecr/` – ECR repositories for images (used by the build-image pipeline).
-- `iam_codebuild/` – IAM roles and policies for CodeBuild.
+- `iam_codebuild/` – IAM roles and policies for CodeBuild projects.
 - `iam_codepipeline/` – IAM roles and policies for CodePipeline.
-- `s3/` – S3 buckets for artifacts.
-- `ssm/` – SSM parameters for pipeline configuration.
 
-Pipeline stacks under `pipelines/` compose these building blocks rather than defining resources directly.
+Other infrastructure components (S3 artifact buckets, CloudWatch log groups, etc.) are composed directly in the pipeline stacks using official Terraform Registry modules, not separate local modules.
 
 ---
 
 ### `pipelines/`
 
-Top-level pipeline stacks. Each folder is a self-contained Terraform configuration you can deploy independently:
+Deployable pipeline stacks. Each folder is an independent Terraform / OpenTofu configuration:
 
 - `martini-build-image/`
-  - Provisions a CodePipeline + CodeBuild + ECR workflow for building Martini runtime images.
+  Provisions a CodePipeline + CodeBuild workflow for building Martini runtime images and pushing them to ECR.
+
 - `martini-upload-package/`
-  - Provisions a CodePipeline + CodeBuild workflow for zipping and uploading packages to a running Martini instance.
+  Provisions a CodePipeline + CodeBuild workflow for zipping and uploading Martini packages to an existing Martini runtime.
 
-Each pipeline folder contains:
+Each pipeline folder includes:
 
-- `main.tf` – Stack wiring that uses modules from `../modules`.
-- `variables.tf` – Input variables and descriptions.
-- `outputs.tf` – Useful outputs (e.g., CodeBuild project name, CodePipeline name, SSM parameter names).
-
-Refer to the README inside each pipeline folder for usage and inputs.
+- `main.tf` – Stack wiring (uses `modules/` and registry modules).
+- `variables.tf` – Inputs and defaults.
+- `outputs.tf` – Useful outputs (e.g., CodeBuild project name, CodePipeline name, SSM parameter name).
+- `README.md` – Usage instructions and workflow overview.
+- `.terraform-docs.yml` – Configuration for automatically generating the Inputs table in the README.
 
 ---
 
@@ -57,33 +54,35 @@ Refer to the README inside each pipeline folder for usage and inputs.
 
 Helper artifacts referenced by the buildspecs:
 
-- `dockerfile`
-  - Used by the build-image pipeline to build a Martini runtime container image.
-- `upload_packages.sh`
-  - Used by the upload-package pipeline to zip, filter, and upload packages and optionally poll the runtime for startup success.
+- `Dockerfile`
+  Used by the build-image pipeline to build the Martini runtime container image.
 
-These files are not executed by Terraform itself; Terraform configures CodeBuild to use them.
+- `upload_packages.sh`
+  Used by the upload-package pipeline to zip, filter, upload packages, and optionally poll the runtime for startup success.
+
+Terraform / OpenTofu does not execute these scripts directly; they are invoked by CodeBuild during pipeline execution.
 
 ---
 
-## Running Terraform
+## Running Terraform / OpenTofu
 
-For each pipeline:
+To deploy a pipeline:
 
-1. Change into the pipeline folder:
+1. Change into the target pipeline directory:
    ```bash
    cd terraform/pipelines/martini-build-image
    # or
    cd terraform/pipelines/martini-upload-package
    ```
 
-2. Prepare variable values (`terraform.tfvars`, environment variables, or CLI `-var` flags).
+2. Provide required variables via `terraform.tfvars`, environment variables, or `-var` flags.
 
 3. Run:
+
    ```bash
-   terraform init
-   terraform plan
-   terraform apply
+   terraform init   # or: tofu init
+   terraform plan   # or: tofu plan
+   terraform apply  # or: tofu apply
    ```
 
 You can deploy one or both pipelines depending on your needs.
@@ -95,11 +94,14 @@ You can deploy one or both pipelines depending on your needs.
 To add a new pipeline:
 
 1. Create a new folder under `terraform/pipelines/`.
-2. Reuse existing modules under `terraform/modules/` where possible.
-3. Reference any new buildspecs or scripts from `terraform/buildspecs/` and `terraform/scripts/`.
-4. Add a small README in the new pipeline folder following the existing style:
+2. Reuse the IAM modules under `terraform/modules/` where appropriate.
+3. Use Terraform Registry modules for infrastructure (S3, CloudWatch, etc.), consistent with existing stacks.
+4. Add any new buildspecs or scripts under:
+   - `terraform/buildspecs/`
+   - `terraform/scripts/`
+5. Add a README in the new pipeline folder following this style:
    - Short intro
-   - Repository structure
+   - Repository structure for that pipeline
    - Requirements
-   - How to run Terraform
-   - Inputs table (if applicable)
+   - How to run Terraform / OpenTofu
+   - Auto-generated Inputs section (`terraform-docs` with `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->`)

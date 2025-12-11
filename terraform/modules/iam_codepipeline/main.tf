@@ -58,6 +58,8 @@ data "aws_iam_policy_document" "codepipeline_permissions" {
       "codebuild:StartBuild",
       "codebuild:BatchGetBuilds"
     ]
+    # checkov:skip=CKV_AWS_111: CodePipeline must call CodeBuild projects using wildcard ARN
+    # checkov:skip=CKV_AWS_356: CodeBuild integration requires wildcard resource for dynamic project names
     resources = ["*"]
   }
 
@@ -80,6 +82,8 @@ data "aws_iam_policy_document" "codepipeline_permissions" {
       "events:RemoveTargets",
       "events:DescribeRule"
     ]
+    # checkov:skip=CKV_AWS_111: EventBridge rules for CodePipeline use dynamic ARNs, wildcard is required
+    # checkov:skip=CKV_AWS_356: EventBridge API requires wildcard resources for dynamically created rules
     resources = ["*"]
   }
 }

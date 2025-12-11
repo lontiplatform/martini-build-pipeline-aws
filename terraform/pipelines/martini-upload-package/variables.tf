@@ -27,7 +27,7 @@ variable "branch_name" {
 }
 
 variable "buildspec_filename" {
-  description = "The buildspec file for the Codebuild project."
+  description = "The buildspec file for the CodeBuild project."
   type        = string
   default     = "terraform/buildspecs/martini-upload-package.yaml"
 }
@@ -49,21 +49,21 @@ variable "martini_access_token" {
 }
 
 variable "async_upload" {
-  description = "Whether to treat HTTP 504 as successful upload (asynchronous mode)."
+  description = "Use async upload mode. If null, upload_packages.sh default is used."
   type        = bool
-  default     = false
+  default     = null
 }
 
 variable "success_check_delay" {
-  description = "Delay (seconds) between polling attempts for upload status."
+  description = "Polling delay in seconds. If null, script default is used."
   type        = number
-  default     = 30
+  default     = null
 }
 
 variable "success_check_timeout" {
-  description = "Maximum number of polling attempts for upload status verification."
+  description = "Polling timeout count. If null, script default is used."
   type        = number
-  default     = 6
+  default     = null
 }
 
 variable "log_retention_days" {
@@ -73,13 +73,13 @@ variable "log_retention_days" {
 }
 
 variable "kms_key_arn" {
-  description = "Optional KMS key ARN for encrypting logs, S3, and SSM parameters."
+  description = "Optional KMS key ARN for encrypting logs, S3 buckets, and SSM."
   type        = string
   default     = null
 }
 
 variable "tags" {
-  description = "Map of additional tags applied to all resources."
+  description = "Tags applied to all resources."
   type        = map(string)
   default     = {}
 }

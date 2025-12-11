@@ -11,13 +11,13 @@ output "codebuild_project_name" {
 }
 
 output "artifact_bucket_name" {
-  value       = module.s3.artifact_bucket_name
+  value       = module.artifact_bucket.s3_bucket_id
 }
 
 output "ecr_repository_url" {
-  value       = module.ecr.ecr_repository_url
+  value       = module.ecr.repository_url
 }
 
 output "ssm_parameter_name" {
-  value       = module.ssm.ssm_parameter_name
+  value       = local.ssm_parameter_name
 }

@@ -10,22 +10,17 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - PARAMETER=$(aws ssm get-parameter --name "$PARAMETER_NAME" --with-decryption --query "Parameter.Value" --output text)
+      - PARAMETER=$(aws ssm get-parameter --name "$BUILD_IMAGE_PARAMETER" --with-decryption --query "Parameter.Value" --output text)
       - export MARTINI_VERSION=$(echo "$PARAMETER" | jq -r '.martini_version')
 
-      - "missing=0; for var in PARAMETER_NAME MARTINI_VERSION ECR_REPO_URI; do if [ -z \"${!var}\" ]; then echo \"ERROR: $var is missing\"; missing=1; fi; done; if [ \"$missing\" = \"1\" ]; then exit 1; fi"
-
-      - echo "Using SSM Parameter ${PARAMETER_NAME}"
-      - echo "Resolved MARTINI_VERSION=$MARTINI_VERSION"
-      - echo "Resolved ECR_REPO_URI=$ECR_REPO_URI"
+      - "missing=0; for var in BUILD_IMAGE_PARAMETER MARTINI_VERSION ECR_REPO_URI; do if [ -z \"${!var}\" ] || [ \"${!var}\" = \"null\" ]; then echo \"ERROR: $var is missing or empty\"; missing=1; fi; done; if [ \"$missing\" = \"1\" ]; then exit 1; fi"
 
       - aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REPO_URI"
 
   build:
     commands:
       - echo "Building Docker image for Martini version ${MARTINI_VERSION}..."
-      - docker build -f scripts/dockerfile --build-arg MARTINI_VERSION="$MARTINI_VERSION" -t mr:"$MARTINI_VERSION" .
-
+      - docker build -f terraform/scripts/Dockerfile --build-arg MARTINI_VERSION="$MARTINI_VERSION" -t mr:"$MARTINI_VERSION" .
       - echo "Tagging image..."
       - docker tag mr:"$MARTINI_VERSION" "$ECR_REPO_URI:$MARTINI_VERSION"
 

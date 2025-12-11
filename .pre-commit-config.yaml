@@ -1,40 +1,23 @@
 repos:
-  # Terraform Hooks
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.103.0
+  - repo: https://github.com/tofuutils/pre-commit-opentofu
+    rev: v2.2.2
     hooks:
-      - id: terraform_fmt
+      - id: tofu_fmt
+        name: tofu fmt (format Terraform/OpenTofu code)
         always_run: true
         pass_filenames: false
         files: ^terraform/.*\.tf$
+        args: [--args=-check]
 
-      - id: terraform_validate
+      - id: tofu_validate
+        name: tofu validate
         always_run: true
         pass_filenames: false
         files: ^terraform/.*\.tf$
-        args:
-          - --init-args=-lockfile=readonly
-          - --args=-json
-          - --args=-no-color
-
-      - id: terraform_docs
-        always_run: true
-        pass_filenames: false
-        files: ^terraform/.*
-        args:
-          - --hook-config=--add-to-existing-file=true
-
-      - id: terraform_checkov
-        always_run: true
-        pass_filenames: false
-        files: ^terraform/.*
-        args:
-          - --args=--directory=terraform
-          - --args=--config-file=.checkov.yaml
-          - --args=--quiet
+        args: [--args=-init]
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.33.0
+    rev: v1.37.1
     hooks:
       - id: yamllint
         args: ["--config-file=.yamllint"]
@@ -47,7 +30,7 @@ repos:
         args: ["--severity=warning"]
 
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.7.0-2
+    rev: v3.12.0-2
     hooks:
       - id: shfmt-src
         files: \.sh$
@@ -57,9 +40,50 @@ repos:
     rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
-        stages: [commit]
       - id: trailing-whitespace
-        stages: [commit]
       - id: check-yaml
       - id: check-added-large-files
       - id: check-merge-conflict
+
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 3.2.475
+    hooks:
+      - id: checkov
+        name: checkov - IaC security checks
+        pass_filenames: false
+        args:
+          - --directory=terraform
+          - --config-file=.checkov.yaml
+        additional_dependencies:
+          - packaging<=24.0
+          - aiodns==3.0.0
+          - pycares==4.3.0
+
+  - repo: https://github.com/terraform-docs/terraform-docs
+    rev: "v0.16.0"
+    hooks:
+      - id: terraform-docs-go
+        name: terraform-docs (martini-build-image)
+        args:
+          - markdown
+          - table
+          - --output-file
+          - README.md
+          - --output-mode
+          - inject
+          - terraform/pipelines/martini-build-image
+        pass_filenames: false
+        always_run: true
+
+      - id: terraform-docs-go
+        name: terraform-docs (martini-upload-package)
+        args:
+          - markdown
+          - table
+          - --output-file
+          - README.md
+          - --output-mode
+          - inject
+          - terraform/pipelines/martini-upload-package
+        pass_filenames: false
+        always_run: true

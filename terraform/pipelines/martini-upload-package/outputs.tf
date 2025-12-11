@@ -11,9 +11,9 @@ output "codebuild_project_name" {
 }
 
 output "artifact_bucket_name" {
-  value       = module.s3.artifact_bucket_name
+  value       = module.artifact_bucket.s3_bucket_id
 }
 
 output "ssm_parameter_name" {
-  value       = module.ssm.ssm_parameter_name
+  value       = local.ssm_parameter_name
 }

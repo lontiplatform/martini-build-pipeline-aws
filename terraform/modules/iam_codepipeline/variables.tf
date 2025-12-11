@@ -25,7 +25,7 @@ variable "kms_key_arns" {
 }
 
 variable "tags" {
-  description = "Tags applied to the S3 bucket (merged with Service=Codepipeline)."
+  description = "Tags applied to the CodePipeline IAM role."
   type        = map(string)
   default     = {}
 }

@@ -27,7 +27,7 @@ variable "branch_name" {
 }
 
 variable "buildspec_filename" {
-  description = "The buildspec file for the Codebuild project."
+  description = "The buildspec file for the CodeBuild project."
   type        = string
   default     = "terraform/buildspecs/martini-build-image.yaml"
 }
