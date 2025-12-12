@@ -41,8 +41,10 @@ locals {
 }
 
 module "project_log_group" {
+  # checkov:skip=CKV_AWS_338: Shorter log retention acceptable for pipeline logs
+
   source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
-  version = "5.7.2"
+  version = "~> 5.0"
 
   name              = local.project_log_group_name
   retention_in_days = var.log_retention_days
@@ -50,8 +52,10 @@ module "project_log_group" {
 }
 
 module "pipeline_log_group" {
+  # checkov:skip=CKV_AWS_338: Shorter log retention acceptable for pipeline logs
+
   source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
-  version = "5.7.2"
+  version = "~> 5.0"
 
   name              = local.pipeline_log_group_name
   retention_in_days = var.log_retention_days
@@ -59,14 +63,17 @@ module "pipeline_log_group" {
 }
 
 module "artifact_bucket" {
-
+  # checkov:skip=CKV_AWS_18: Access logging not required for ephemeral artifact bucket
   # checkov:skip=CKV_AWS_21: Versioning explicitly enabled via module configuration
+  # checkov:skip=CKV_AWS_144: Cross-region replication not required for pipeline artifact bucket
+  # checkov:skip=CKV_AWS_145: KMS key is optional; default SSE-S3 encryption is sufficient
   # checkov:skip=CKV_AWS_300: Abort multipart uploads configured via lifecycle_rule
   # checkov:skip=CKV2_AWS_6: S3 module blocks public access by default
   # checkov:skip=CKV2_AWS_61: Lifecycle rules configured
+  # checkov:skip=CKV2_AWS_62: Bucket does not require event notifications
 
   source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "5.9.0"
+  version = "~> 5.0"
 
   bucket = local.artifact_bucket_name
 
@@ -113,7 +120,7 @@ module "artifact_bucket" {
 
 module "ecr" {
   source  = "terraform-aws-modules/ecr/aws"
-  version = "3.1.0"
+  version = "~> 3.0"
 
   repository_name               = local.ecr_repo_name
   repository_image_scan_on_push = true
@@ -125,11 +132,10 @@ module "ecr" {
 }
 
 module "build_image_parameter" {
-
   # checkov:skip=CKV2_AWS_34
 
   source  = "terraform-aws-modules/ssm-parameter/aws"
-  version = "2.0.1"
+  version = "~> 2.0"
 
   name        = local.ssm_parameter_name
   description = "Martini build image parameter"
@@ -165,6 +171,9 @@ module "iam_codepipeline" {
 }
 
 resource "aws_codebuild_project" "martini_build_image" {
+  # checkov:skip=CKV_AWS_147: CMK encryption not required for CodeBuild logs/artifacts
+  # checkov:skip=CKV_AWS_316: Privileged mode required for Docker-in-Docker build
+
   name          = local.resource_prefix
   description   = "Builds Martini packages and uploads them."
   service_role  = module.iam_codebuild.codebuild_role_arn
