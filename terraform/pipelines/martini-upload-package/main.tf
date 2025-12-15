@@ -132,7 +132,7 @@ module "ecr" {
 }
 
 module "build_image_parameter" {
-  # checkov:skip=CKV2_AWS_34
+  # checkov:skip=CKV2_AWS_34: Parameter is set as SecureString and at default is encrypted at rest; CMK used when provided
 
   source  = "terraform-aws-modules/ssm-parameter/aws"
   version = "~> 2.0"
