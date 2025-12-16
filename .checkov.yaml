@@ -1,0 +1,19 @@
+quiet: true
+compact: true
+summary-position: top
+
+directory:
+  - ./terraform
+
+framework:
+  - terraform
+
+download-external-modules: true
+evaluate-variables: true
+
+skip-check:
+  - CKV_TF_1            # Tofu/Terraform lockfile handling
+
+mask: []
+secrets-scan-file-type: []
+block-list-secret-scan: []

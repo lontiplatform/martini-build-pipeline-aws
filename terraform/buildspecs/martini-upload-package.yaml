@@ -1,0 +1,34 @@
+---
+# ------------------------
+# Name: Martini Upload Package Pipeline
+# Description: Zips and uploads Martini packages to a Martini Server Runtime.
+# Author: Lonti <support@lonti.com>
+# ------------------------
+
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Fetching SSM parameter..."
+      - PARAMETER=$(aws ssm get-parameter --name "$UPLOAD_PACKAGE_PARAMETER" --with-decryption --query "Parameter.Value" --output text)
+
+      - export BASE_URL=$(echo "$PARAMETER" | jq -r '.base_url')
+      - export MARTINI_ACCESS_TOKEN=$(echo "$PARAMETER" | jq -r '.martini_access_token')
+      - export ASYNC_UPLOAD=$(echo "$PARAMETER" | jq -r '.async_upload // empty')
+      - export SUCCESS_CHECK_DELAY=$(echo "$PARAMETER" | jq -r '.success_check_delay // empty')
+      - export SUCCESS_CHECK_TIMEOUT=$(echo "$PARAMETER" | jq -r '.success_check_timeout // empty')
+
+      - "missing=0; for var in PARAMETER_NAME BASE_URL ACCESS_TOKEN; do if [ -z \"${!var}\" ]; then echo \"ERROR: $var is missing\"; missing=1; fi; done; if [ \"$missing\" = \"1\" ]; then exit 1; fi"
+
+  build:
+    commands:
+      - chmod +x scripts/upload_packages.sh
+      - bash scripts/upload_packages.sh
+
+artifacts:
+  files:
+    - '**/packages.zip'
+    - '**/response_body.log'
+    - '**/results.log'
+  discard-paths: true

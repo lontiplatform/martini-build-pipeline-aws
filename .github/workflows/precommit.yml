@@ -1,0 +1,53 @@
+name: Pre-Commit CI
+
+on:
+  push:
+    branches:
+      - development
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pre-commit:
+    name: Pre-Commit Checks
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHON_VERSION: "3.13"
+      TOFU_VERSION: "1.11"
+      CHECKOV_VERSION: "3.2.475"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Cache Pre-commit Hooks
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-precommit-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - name: Install Pre-commit
+        run: pip install pre-commit
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "${{ env.TOFU_VERSION }}"
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y yamllint shellcheck shfmt
+          pip install checkov==${{ env.CHECKOV_VERSION }}
+
+      - name: Run Pre-Commit Hooks
+        run: pre-commit run --all-files --show-diff-on-failure

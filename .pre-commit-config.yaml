@@ -1,0 +1,89 @@
+repos:
+  - repo: https://github.com/tofuutils/pre-commit-opentofu
+    rev: v2.2.2
+    hooks:
+      - id: tofu_fmt
+        name: tofu fmt (format Terraform/OpenTofu code)
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*\.tf$
+        args: [--args=-check]
+
+      - id: tofu_validate
+        name: tofu validate
+        always_run: true
+        pass_filenames: false
+        files: ^terraform/.*\.tf$
+        args: [--args=-init]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: ["--config-file=.yamllint"]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+        files: \.sh$
+        args: ["--severity=warning"]
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.12.0-2
+    hooks:
+      - id: shfmt-src
+        files: \.sh$
+        args: ["-w"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 3.2.475
+    hooks:
+      - id: checkov
+        name: checkov - IaC security checks
+        pass_filenames: false
+        args:
+          - --directory=terraform
+          - --config-file=.checkov.yaml
+        additional_dependencies:
+          - packaging<=24.0
+          - aiodns==3.0.0
+          - pycares==4.3.0
+
+  - repo: https://github.com/terraform-docs/terraform-docs
+    rev: "v0.16.0"
+    hooks:
+      - id: terraform-docs-go
+        name: terraform-docs (martini-build-image)
+        args:
+          - markdown
+          - table
+          - --output-file
+          - README.md
+          - --output-mode
+          - inject
+          - terraform/pipelines/martini-build-image
+        pass_filenames: false
+        always_run: true
+
+      - id: terraform-docs-go
+        name: terraform-docs (martini-upload-package)
+        args:
+          - markdown
+          - table
+          - --output-file
+          - README.md
+          - --output-mode
+          - inject
+          - terraform/pipelines/martini-upload-package
+        pass_filenames: false
+        always_run: true

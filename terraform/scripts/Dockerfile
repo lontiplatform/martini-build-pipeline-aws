@@ -1,5 +1,5 @@
-# Use the toroio/martini-runtime:${MARTINI_VERSION} image as the base
-ARG MARTINI_VERSION
+# Use the lontiplatform/martini-server-runtime:${MARTINI_VERSION} image as the base
+ARG MARTINI_VERSION=latest
 FROM lontiplatform/martini-server-runtime:${MARTINI_VERSION}
 
 # Copy packages to the MR image

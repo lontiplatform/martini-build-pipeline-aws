@@ -1,0 +1,12 @@
+<martini-package>
+  <package>
+    <dependencies/>
+  </package>
+  <jar>
+    <dependencies/>
+  </jar>
+  <repositoryConfig>
+    <enableMarketplaceRepository>true</enableMarketplaceRepository>
+    <repositories/>
+  </repositoryConfig>
+</martini-package>
