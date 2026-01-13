@@ -36,8 +36,17 @@ locals {
   codebuild_role_name    = "${local.resource_prefix}-codebuild-role"
   codepipeline_role_name = "${local.resource_prefix}-codepipeline-role"
 
-  ecr_repo_name      = local.resource_prefix
   ssm_parameter_name = "/martini/${local.environment}/${local.pipeline_name}"
+
+  upload_package_ssm_value = merge(
+    {
+      base_url             = var.base_url
+      martini_access_token = var.martini_access_token
+    },
+    var.async_upload == null ? {} : { async_upload = var.async_upload },
+    var.success_check_delay == null ? {} : { success_check_delay = var.success_check_delay },
+    var.success_check_timeout == null ? {} : { success_check_timeout = var.success_check_timeout }
+  )
 }
 
 module "project_log_group" {
@@ -75,7 +84,8 @@ module "artifact_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 5.0"
 
-  bucket = local.artifact_bucket_name
+  bucket        = local.artifact_bucket_name
+  force_destroy = true
 
   versioning = {
     enabled = true
@@ -118,35 +128,19 @@ module "artifact_bucket" {
   }
 }
 
-module "ecr" {
-  source  = "terraform-aws-modules/ecr/aws"
-  version = "~> 3.0"
-
-  repository_name               = local.ecr_repo_name
-  repository_image_scan_on_push = true
-
-  create_lifecycle_policy = false
-
-  repository_encryption_type = var.kms_key_arn != null ? "KMS" : "AES256"
-  repository_kms_key         = var.kms_key_arn
-}
-
-module "build_image_parameter" {
+module "upload_package_parameter" {
   # checkov:skip=CKV2_AWS_34: Parameter is set as SecureString and at default is encrypted at rest; CMK used when provided
 
   source  = "terraform-aws-modules/ssm-parameter/aws"
   version = "~> 2.0"
 
   name        = local.ssm_parameter_name
-  description = "Martini build image parameter"
+  description = "Martini upload package parameter"
 
   secure_type = true
   key_id      = var.kms_key_arn
 
-  value = jsonencode({
-    martini_version = var.martini_version
-    ecr_repo_name   = local.ecr_repo_name
-  })
+  value = jsonencode(local.upload_package_ssm_value)
 }
 
 module "iam_codebuild" {
@@ -155,8 +149,7 @@ module "iam_codebuild" {
   role_name             = local.codebuild_role_name
   project_log_group_arn = module.project_log_group.cloudwatch_log_group_arn
   artifact_bucket_arn   = module.artifact_bucket.s3_bucket_arn
-  ssm_parameter_arn     = module.build_image_parameter.arn
-  ecr_repo_arn          = module.ecr.repository_arn
+  ssm_parameter_arn     = module.upload_package_parameter.ssm_parameter_arn
   kms_key_arns          = var.kms_key_arn != null ? [var.kms_key_arn] : []
 }
 
@@ -170,9 +163,8 @@ module "iam_codepipeline" {
   kms_key_arns            = var.kms_key_arn != null ? [var.kms_key_arn] : []
 }
 
-resource "aws_codebuild_project" "martini_build_image" {
+resource "aws_codebuild_project" "martini_upload_package" {
   # checkov:skip=CKV_AWS_147: CMK encryption not required for CodeBuild logs/artifacts
-  # checkov:skip=CKV_AWS_316: Privileged mode required for Docker-in-Docker build
 
   name          = local.resource_prefix
   description   = "Builds Martini packages and uploads them."
@@ -187,21 +179,11 @@ resource "aws_codebuild_project" "martini_build_image" {
     compute_type                = "BUILD_GENERAL1_MEDIUM"
     image                       = "aws/codebuild/amazonlinux2-aarch64-standard:3.0"
     type                        = "ARM_CONTAINER"
-    privileged_mode             = true
+    privileged_mode             = false
     image_pull_credentials_type = "CODEBUILD"
 
     environment_variable {
-      name  = "MARTINI_VERSION"
-      value = var.martini_version
-    }
-
-    environment_variable {
-      name  = "ECR_REPO_URI"
-      value = module.ecr.repository_url
-    }
-
-    environment_variable {
-      name  = "BUILD_IMAGE_PARAMETER"
+      name  = "UPLOAD_PACKAGE_PARAMETER"
       value = local.ssm_parameter_name
     }
   }
@@ -214,12 +196,12 @@ resource "aws_codebuild_project" "martini_build_image" {
   logs_config {
     cloudwatch_logs {
       group_name  = module.project_log_group.cloudwatch_log_group_name
-      stream_name = "build"
+      stream_name = "upload"
     }
   }
 }
 
-resource "aws_codepipeline" "martini_build_pipeline" {
+resource "aws_codepipeline" "martini_upload_pipeline" {
   name     = local.resource_prefix
   role_arn = module.iam_codepipeline.codepipeline_role_arn
 
@@ -256,10 +238,10 @@ resource "aws_codepipeline" "martini_build_pipeline" {
   }
 
   stage {
-    name = "Build"
+    name = "Upload"
 
     action {
-      name             = "BuildImage"
+      name             = "UploadPackage"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
@@ -268,7 +250,7 @@ resource "aws_codepipeline" "martini_build_pipeline" {
       output_artifacts = ["build_output"]
 
       configuration = {
-        ProjectName = aws_codebuild_project.martini_build_image.name
+        ProjectName = aws_codebuild_project.martini_upload_package.name
       }
     }
   }
